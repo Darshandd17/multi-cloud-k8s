@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: myapp
-        image: docker.io/darshandd17/myapp:latest
+        image: 571600847532.dkr.ecr.us-east-1.amazonaws.com/myrepo:latest
         ports:
         - containerPort: 5000
 resources:
