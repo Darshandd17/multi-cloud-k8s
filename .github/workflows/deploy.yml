@@ -17,35 +17,39 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v1
 
       - name: Define AWS Region and ECR Repository
         run: |
-          echo "AWS_REGION=us-east-1" >> $GITHUB_ENV
-          echo "ECR_REPO_URI=571600847532.dkr.ecr.us-east-1.amazonaws.com/myrepo" >> $GITHUB_ENV
-
-      - name: Login to Amazon ECR
-        run: |
-          set -e
-          aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.ECR_REPO_URI }}
+          echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> $GITHUB_ENV
+          echo "ECR_REPO_URI=571600847532.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/myrepo" >> $GITHUB_ENV
 
       - name: Set IMAGE_TAG
         run: |
-          echo "IMAGE_TAG=$(echo $GITHUB_REF_NAME)-$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_ENV
+          BRANCH_NAME=$(echo $GITHUB_REF_NAME | tr '/' '-')
+          SHORT_SHA=$(echo $GITHUB_SHA | cut -c1-7)
+          TIMESTAMP=$(date +%Y%m%d%H%M%S)
+          if [[ "$BRANCH_NAME" == "main" ]]; then
+            echo "IMAGE_TAG=latest" >> $GITHUB_ENV
+          else
+            echo "IMAGE_TAG=${BRANCH_NAME}-${SHORT_SHA}-${TIMESTAMP}" >> $GITHUB_ENV
+          fi
 
       - name: Build Docker image
         run: |
-          set -e
-          docker build --no-cache -t myapp:${{ env.IMAGE_TAG }} .
+          docker build \
+            --cache-from=${{ env.ECR_REPO_URI }}:latest \
+            --tag myapp:${{ env.IMAGE_TAG }} .
 
       - name: Tag Docker image
         run: |
-          set -e
           docker tag myapp:${{ env.IMAGE_TAG }} ${{ env.ECR_REPO_URI }}:${{ env.IMAGE_TAG }}
 
       - name: Push Docker image to Amazon ECR
         run: |
-          set -e
           docker push ${{ env.ECR_REPO_URI }}:${{ env.IMAGE_TAG }}
 
       - name: Verify pushed image
