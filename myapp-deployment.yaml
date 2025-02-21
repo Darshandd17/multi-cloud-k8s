@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp-deployment
+spec:
+  replicas: 2  # Scale to 2 replicas for high availability
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      containers:
+      - name: myapp
+        image: 571600847532.dkr.ecr.us-east-1.amazonaws.com/myrepo:latest  # CI/CD should replace this dynamically
+        imagePullPolicy: Always  # Ensures latest image is always pulled
+        ports:
+        - containerPort: 5000
+        env:
+        - name: PORT
+          value: "5000"
+        - name: FLASK_DEBUG
+          value: "false"  # Change to "true" for debugging
+        resources:
+          requests:
+            cpu: "200m"  # Increased slightly for startup performance
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 5000
+          initialDelaySeconds: 5  # Wait 5s before the first check
+          periodSeconds: 5  # Check every 5 seconds
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 5000
+          initialDelaySeconds: 3
+          periodSeconds: 5
+      restartPolicy: Always
+      imagePullSecrets:
+      - name: aws-ecr-secret  # If required for private ECR authentication
+      terminationGracePeriodSeconds: 30  # Ensures a graceful shutdown
